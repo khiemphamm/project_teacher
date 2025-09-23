@@ -1,0 +1,291 @@
+// ScienceEdu Database Schema
+// Hệ thống giáo dục khoa học cho Sinh học, Hóa học, Vật lý
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// User Model - Người dùng (Giáo viên và Học sinh)
+model User {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  email     String   @unique
+  name      String
+  password  String?  // Optional for OAuth users
+  role      Role     @default(STUDENT)
+  avatar    String?
+  schoolId  String?  @db.ObjectId
+  school    School?  @relation(fields: [schoolId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Teacher relations
+  teacherAssignments Assignment[] @relation("TeacherAssignments")
+  teacherClasses     Class[]      @relation("TeacherClasses")
+
+  // Student relations
+  studentClasses   ClassStudent[]
+  studentAnswers   StudentAnswer[]
+  studentProgress  StudentProgress[]
+  notifications    Notification[]
+
+  // Auth relations
+  accounts Account[]
+  sessions Session[]
+
+  @@map("users")
+}
+
+// School Model - Trường học
+model School {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  name      String
+  address   String?
+  phone     String?
+  email     String?
+  users     User[]
+  classes   Class[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("schools")
+}
+
+// Class Model - Lớp học
+model Class {
+  id          String         @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  grade       String
+  subject     Subject
+  description String?
+  teacherId   String         @db.ObjectId
+  teacher     User           @relation("TeacherClasses", fields: [teacherId], references: [id])
+  schoolId    String?        @db.ObjectId
+  school      School?        @relation(fields: [schoolId], references: [id])
+  students    ClassStudent[]
+  assignments Assignment[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("classes")
+}
+
+// ClassStudent Model - Quan hệ nhiều-nhiều giữa Class và Student
+model ClassStudent {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  classId   String   @db.ObjectId
+  class     Class    @relation(fields: [classId], references: [id])
+  studentId String   @db.ObjectId
+  student   User     @relation(fields: [studentId], references: [id])
+  joinedAt  DateTime @default(now())
+
+  @@unique([classId, studentId])
+  @@map("class_students")
+}
+
+// Assignment Model - Bài tập
+model Assignment {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  subject     Subject
+  dueDate     DateTime?
+  totalPoints Int      @default(0)
+  isPublished Boolean  @default(false)
+  
+  // Relations
+  teacherId String @db.ObjectId
+  teacher   User   @relation("TeacherAssignments", fields: [teacherId], references: [id])
+  classId   String @db.ObjectId
+  class     Class  @relation(fields: [classId], references: [id])
+  
+  questions       Question[]
+  studentProgress StudentProgress[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("assignments")
+}
+
+// Question Model - Câu hỏi
+model Question {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  type          QuestionType
+  question      String
+  options       String[]     @default([])
+  correctAnswer Json?
+  explanation   String?
+  points        Int          @default(1)
+  subject       Subject
+  topic         String
+  difficulty    Difficulty   @default(MEDIUM)
+  
+  // Subject-specific fields
+  formula          String? // For physics calculations
+  chemicalEquation String? // For chemistry
+  diagramData      Json?   // For biology diagrams
+  
+  // Relations
+  assignmentId String     @db.ObjectId
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  
+  studentAnswers StudentAnswer[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("questions")
+}
+
+// StudentAnswer Model - Câu trả lời của học sinh
+model StudentAnswer {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  answer       Json
+  isCorrect    Boolean  @default(false)
+  pointsEarned Int      @default(0)
+  timeSpent    Int?     // seconds
+  
+  // Relations
+  studentId  String   @db.ObjectId
+  student    User     @relation(fields: [studentId], references: [id])
+  questionId String   @db.ObjectId
+  question   Question @relation(fields: [questionId], references: [id])
+  
+  submittedAt DateTime @default(now())
+
+  @@unique([studentId, questionId])
+  @@map("student_answers")
+}
+
+// StudentProgress Model - Tiến độ học sinh
+model StudentProgress {
+  id           String           @id @default(auto()) @map("_id") @db.ObjectId
+  status       ProgressStatus   @default(NOT_STARTED)
+  totalPoints  Int              @default(0)
+  earnedPoints Int              @default(0)
+  percentage   Float            @default(0)
+  
+  // Timestamps
+  startedAt   DateTime?
+  submittedAt DateTime?
+  gradedAt    DateTime?
+  
+  // Relations
+  studentId    String     @db.ObjectId
+  student      User       @relation(fields: [studentId], references: [id])
+  assignmentId String     @db.ObjectId
+  assignment   Assignment @relation(fields: [assignmentId], references: [id])
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, assignmentId])
+  @@map("student_progress")
+}
+
+// Notification Model - Thông báo
+model Notification {
+  id        String           @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  message   String
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  
+  // Relations
+  userId String @db.ObjectId
+  user   User   @relation(fields: [userId], references: [id])
+  
+  createdAt DateTime @default(now())
+
+  @@map("notifications")
+}
+
+// NextAuth Models
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verificationtokens")
+}
+
+// Enums
+enum Role {
+  TEACHER
+  STUDENT
+  ADMIN
+}
+
+enum Subject {
+  BIOLOGY
+  CHEMISTRY
+  PHYSICS
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  ESSAY
+  CALCULATION
+  DIAGRAM
+  EQUATION
+  TRUE_FALSE
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum ProgressStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  GRADED
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  ASSIGNMENT
+  GRADE
+}
