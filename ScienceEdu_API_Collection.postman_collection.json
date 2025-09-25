@@ -1,0 +1,390 @@
+{
+  "info": {
+    "name": "ScienceEdu API Collection",
+    "description": "Complete API collection for testing ScienceEdu platform endpoints",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "sessionToken",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register Teacher",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Giáo viên Hóa học\",\n  \"email\": \"teacher.chemistry@example.com\",\n  \"password\": \"123456aA\",\n  \"role\": \"TEACHER\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Register Student", 
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Học sinh Nguyễn Văn A\",\n  \"email\": \"student@example.com\",\n  \"password\": \"123456aA\",\n  \"role\": \"STUDENT\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Get Session",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/auth/session",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "auth", "session"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Classes Management",
+      "item": [
+        {
+          "name": "Get Classes List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/classes?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "classes"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit", 
+                  "value": "10"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create New Class",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hóa học 10A1\",\n  \"grade\": \"10\",\n  \"subject\": \"CHEMISTRY\",\n  \"description\": \"Lớp học Hóa học nâng cao cho học sinh giỏi\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/classes",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "classes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Assignments Management",
+      "item": [
+        {
+          "name": "Get Assignments List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments?page=1&limit=10&subject=CHEMISTRY",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assignments"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "subject",
+                  "value": "CHEMISTRY"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create New Assignment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bài tập về Cấu trúc nguyên tử\",\n  \"description\": \"Bài tập trắc nghiệm và tự luận về cấu trúc nguyên tử, bảng tuần hoàn\",\n  \"subject\": \"CHEMISTRY\",\n  \"dueDate\": \"2025-10-15T23:59:59.000Z\",\n  \"classId\": \"REPLACE_WITH_ACTUAL_CLASS_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assignments"]
+            }
+          }
+        },
+        {
+          "name": "Get Assignment Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/ASSIGNMENT_ID",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assignments", "ASSIGNMENT_ID"]
+            }
+          }
+        },
+        {
+          "name": "Update Assignment",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bài tập về Cấu trúc nguyên tử - Updated\",\n  \"description\": \"Mô tả đã được cập nhật với thêm thông tin về electron\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/ASSIGNMENT_ID",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assignments", "ASSIGNMENT_ID"]
+            }
+          }
+        },
+        {
+          "name": "Publish Assignment",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"isPublished\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/ASSIGNMENT_ID/publish",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assignments", "ASSIGNMENT_ID", "publish"]
+            }
+          }
+        },
+        {
+          "name": "Delete Assignment",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/assignments/ASSIGNMENT_ID",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "assignments", "ASSIGNMENT_ID"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Questions Management",
+      "item": [
+        {
+          "name": "Get Questions List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/questions?page=1&limit=10&subject=CHEMISTRY&type=MULTIPLE_CHOICE",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "subject",
+                  "value": "CHEMISTRY"
+                },
+                {
+                  "key": "type",
+                  "value": "MULTIPLE_CHOICE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Multiple Choice Question",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"MULTIPLE_CHOICE\",\n  \"question\": \"Trong nguyên tử, hạt nhân chứa:\",\n  \"options\": [\"Proton và electron\", \"Neutron và electron\", \"Proton và neutron\", \"Chỉ có proton\"],\n  \"correctAnswer\": 2,\n  \"explanation\": \"Hạt nhân nguyên tử gồm proton mang điện tích dương và neutron trung hòa điện\",\n  \"points\": 2,\n  \"subject\": \"CHEMISTRY\",\n  \"topic\": \"Cấu trúc nguyên tử\",\n  \"difficulty\": \"EASY\",\n  \"assignmentId\": \"REPLACE_WITH_ACTUAL_ASSIGNMENT_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Create Physics Calculation Question",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"CALCULATION\",\n  \"question\": \"Một vật có khối lượng 2kg chuyển động với vận tốc 10m/s. Tính động năng của vật.\",\n  \"correctAnswer\": 100,\n  \"explanation\": \"Động năng Ek = 1/2 * m * v² = 1/2 * 2 * 10² = 100J\",\n  \"points\": 5,\n  \"subject\": \"PHYSICS\",\n  \"topic\": \"Cơ học\",\n  \"difficulty\": \"MEDIUM\",\n  \"formula\": \"Ek = 1/2 * m * v²\",\n  \"assignmentId\": \"REPLACE_WITH_ACTUAL_ASSIGNMENT_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Create Biology Essay Question",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"ESSAY\",\n  \"question\": \"Mô tả quá trình quang hợp ở thực vật và vai trò của nó đối với sự sống trên Trái đất.\",\n  \"correctAnswer\": \"Quá trình quang hợp là quá trình tạo ra glucose từ CO2 và H2O dưới tác dụng của ánh sáng...\",\n  \"explanation\": \"Cần nêu được: phương trình quang hợp, vai trò chlorophyll, sản phẩm tạo thành, ý nghĩa sinh thái\",\n  \"points\": 10,\n  \"subject\": \"BIOLOGY\",\n  \"topic\": \"Sinh lý thực vật\",\n  \"difficulty\": \"HARD\",\n  \"assignmentId\": \"REPLACE_WITH_ACTUAL_ASSIGNMENT_ID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/questions",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions"]
+            }
+          }
+        },
+        {
+          "name": "Get Question Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/questions/QUESTION_ID",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions", "QUESTION_ID"]
+            }
+          }
+        },
+        {
+          "name": "Update Question",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"question\": \"Updated question content\",\n  \"points\": 3,\n  \"difficulty\": \"HARD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/questions/QUESTION_ID",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions", "QUESTION_ID"]
+            }
+          }
+        },
+        {
+          "name": "Delete Question",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/questions/QUESTION_ID",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "questions", "QUESTION_ID"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

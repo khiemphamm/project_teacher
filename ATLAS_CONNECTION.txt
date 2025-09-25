@@ -1,0 +1,13 @@
+# SAVE YOUR ATLAS CONNECTION STRING HERE
+# Replace these values with your actual Atlas credentials:
+
+# Format: mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/scienceedu?retryWrites=true&w=majority
+
+# Example:
+# DATABASE_URL="mongodb+srv://scienceedu_user:ScienceEdu2024!@cluster0.abcdef.mongodb.net/scienceedu?retryWrites=true&w=majority"
+
+# After you get your connection string:
+# 1. Copy it here
+# 2. I'll help you update .env.local
+# 3. Then we'll run: npm run db:push
+# 4. Then: npm run db:seed

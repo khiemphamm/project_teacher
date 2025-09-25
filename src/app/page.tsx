@@ -1,17 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { SUBJECTS } from '@/lib/constants';
-import { BookOpen, Users, BarChart3, Settings, Sun, Moon } from 'lucide-react';
+import { BookOpen, Users, BarChart3, Settings, Sun, Moon, LogOut, UserCircle } from 'lucide-react';
+import { useAuth } from '@/lib/hooks';
+import Link from 'next/link';
+import BiologyDashboard from '@/components/science/BiologyDashboard';
 
 export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'teacher' | 'student'>('teacher');
+  const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
+
+  // Authentication
+  const { user, isAuthenticated, isTeacher, signOut } = useAuth();
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
     document.documentElement.classList.toggle('dark');
   };
+
+  // Auto-select role based on authenticated user
+  useEffect(() => {
+    if (user) {
+      setSelectedRole(isTeacher ? 'teacher' : 'student');
+    }
+  }, [user, isTeacher]);
+
+  // Handle subject selection
+  const handleSubjectClick = (subjectName: string) => {
+    if (isAuthenticated) {
+      setSelectedSubject(subjectName);
+    } else {
+      // Redirect to login
+      window.location.href = '/login';
+    }
+  };
+
+  // Handle back to dashboard
+  const handleBackToDashboard = () => {
+    setSelectedSubject(null);
+  };
+
+  // Show subject dashboard if selected
+  if (selectedSubject === 'biology' && isAuthenticated) {
+    return <BiologyDashboard onBack={handleBackToDashboard} />;
+  }
 
   return (
     <div className={`min-h-screen transition-colors duration-200 ${darkMode ? 'dark' : ''}`}>
@@ -32,29 +66,74 @@ export default function HomePage() {
             </div>
             
             <div className="flex items-center space-x-4">
-              {/* Role Toggle */}
-              <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                <button
-                  onClick={() => setSelectedRole('teacher')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    selectedRole === 'teacher'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300'
-                  }`}
-                >
-                  Giáo viên
-                </button>
-                <button
-                  onClick={() => setSelectedRole('student')}
-                  className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
-                    selectedRole === 'student'
-                      ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
-                      : 'text-gray-600 dark:text-gray-300'
-                  }`}
-                >
-                  Học sinh
-                </button>
-              </div>
+              {/* User Info or Role Toggle */}
+              {isAuthenticated ? (
+                <div className="flex items-center space-x-4">
+                  {/* User Info */}
+                  <div className="flex items-center space-x-2">
+                    <UserCircle className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        {user?.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {isTeacher ? 'Giáo viên' : 'Học sinh'}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  {/* Sign Out Button */}
+                  <button
+                    onClick={signOut}
+                    className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    title="Đăng xuất"
+                  >
+                    <LogOut className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Role Toggle for non-authenticated users */}
+                  <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                    <button
+                      onClick={() => setSelectedRole('teacher')}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                        selectedRole === 'teacher'
+                          ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300'
+                      }`}
+                    >
+                      Giáo viên
+                    </button>
+                    <button
+                      onClick={() => setSelectedRole('student')}
+                      className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+                        selectedRole === 'student'
+                          ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                          : 'text-gray-600 dark:text-gray-300'
+                      }`}
+                    >
+                      Học sinh
+                    </button>
+                  </div>
+
+                  {/* Auth Buttons */}
+                  <div className="flex items-center space-x-2">
+                    <Link
+                      href="/login"
+                      className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white transition-colors text-sm font-medium"
+                    >
+                      Đăng nhập
+                    </Link>
+                    <Link
+                      href="/register"
+                      className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors text-sm font-medium"
+                    >
+                      Đăng ký
+                    </Link>
+                  </div>
+                </>
+              )}
 
               {/* Dark Mode Toggle */}
               <button
@@ -73,7 +152,10 @@ export default function HomePage() {
         {/* Welcome Section */}
         <div className="text-center mb-12">
           <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
-            Chào mừng đến với ScienceEdu
+            {isAuthenticated 
+              ? `Xin chào, ${user?.name}!` 
+              : 'Chào mừng đến với ScienceEdu'
+            }
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Nền tảng giáo dục khoa học hiện đại cho Sinh học, Hóa học và Vật lý.
@@ -89,6 +171,7 @@ export default function HomePage() {
           {Object.values(SUBJECTS).map((subject) => (
             <div
               key={subject.name}
+              onClick={() => handleSubjectClick(subject.name)}
               className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
             >
               <div className={`${subject.color} h-32 flex items-center justify-center`}>
@@ -106,7 +189,7 @@ export default function HomePage() {
                     {subject.topics.length} chủ đề
                   </span>
                   <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm group-hover:translate-x-1 transition-transform">
-                    Khám phá →
+                    {isAuthenticated ? 'Vào Dashboard' : 'Đăng nhập'} →
                   </button>
                 </div>
               </div>
@@ -172,11 +255,26 @@ export default function HomePage() {
               Sẵn sàng bắt đầu?
             </h3>
             <p className="text-blue-100 mb-6 max-w-md mx-auto">
-              Hãy chọn môn học và {selectedRole === 'teacher' ? 'tạo bài tập đầu tiên' : 'bắt đầu học tập'} ngay hôm nay!
+              {isAuthenticated 
+                ? 'Hãy chọn môn học và bắt đầu sử dụng các tính năng của ScienceEdu!'
+                : `Hãy đăng ký tài khoản và ${selectedRole === 'teacher' ? 'tạo bài tập đầu tiên' : 'bắt đầu học tập'} ngay hôm nay!`
+              }
             </p>
-            <button className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
-              {selectedRole === 'teacher' ? 'Tạo bài tập' : 'Bắt đầu học'}
-            </button>
+            {isAuthenticated ? (
+              <button 
+                onClick={() => handleSubjectClick('biology')}
+                className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+              >
+                Vào Dashboard Sinh học
+              </button>
+            ) : (
+              <Link
+                href="/register"
+                className="inline-block bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+              >
+                {selectedRole === 'teacher' ? 'Đăng ký làm Giáo viên' : 'Đăng ký làm Học sinh'}
+              </Link>
+            )}
           </div>
         </div>
       </main>

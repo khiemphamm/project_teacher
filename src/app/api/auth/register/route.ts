@@ -10,6 +10,18 @@ export async function POST(request: NextRequest) {
     // Validate input data
     const validatedData = createUserSchema.parse(body);
     
+    // Only allow STUDENT role registration
+    // Teachers are created by admin only
+    if (validatedData.role !== 'STUDENT') {
+      return NextResponse.json(
+        { 
+          success: false, 
+          message: 'Chỉ được phép đăng ký tài khoản học sinh. Tài khoản giáo viên được tạo bởi quản trị viên.' 
+        },
+        { status: 403 }
+      );
+    }
+    
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: validatedData.email }
