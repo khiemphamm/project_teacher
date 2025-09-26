@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SUBJECTS } from '@/lib/constants';
-import { BookOpen, Users, BarChart3, Settings, Sun, Moon, LogOut, UserCircle } from 'lucide-react';
-import { useAuth } from '@/lib/hooks';
+import { BookOpen, Users, BarChart3, Settings, Sun, Moon, LogOut, UserCircle, Trophy, Target, CheckCircle } from 'lucide-react';
+import { useAuth, useSubjects } from '@/lib/hooks';
+import { signOut } from 'next-auth/react';
 import Link from 'next/link';
 import BiologyDashboard from '@/components/science/BiologyDashboard';
+import StudentBiologyDashboard from '@/components/science/StudentBiologyDashboard';
 
 export default function HomePage() {
   const [darkMode, setDarkMode] = useState(false);
@@ -13,7 +14,19 @@ export default function HomePage() {
   const [selectedSubject, setSelectedSubject] = useState<string | null>(null);
 
   // Authentication
-  const { user, isAuthenticated, isTeacher, signOut } = useAuth();
+  const { user, isAuthenticated, isTeacher } = useAuth();
+
+  // Subjects
+  const { subjects, loading: subjectsLoading, error: subjectsError } = useSubjects();
+
+  // Handle sign out
+  const handleSignOut = async () => {
+    try {
+      await signOut({ callbackUrl: '/' });
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
+  };
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
@@ -29,12 +42,14 @@ export default function HomePage() {
 
   // Handle subject selection
   const handleSubjectClick = (subjectName: string) => {
-    if (isAuthenticated) {
-      setSelectedSubject(subjectName);
-    } else {
-      // Redirect to login
-      window.location.href = '/login';
+    if (!isAuthenticated) {
+      // Show login modal or redirect to login with callback
+      const currentUrl = `${window.location.origin}?subject=${subjectName}`;
+      window.location.href = `/login?callbackUrl=${encodeURIComponent(currentUrl)}`;
+      return;
     }
+    
+    setSelectedSubject(subjectName);
   };
 
   // Handle back to dashboard
@@ -44,7 +59,12 @@ export default function HomePage() {
 
   // Show subject dashboard if selected
   if (selectedSubject === 'biology' && isAuthenticated) {
-    return <BiologyDashboard onBack={handleBackToDashboard} />;
+    // Show appropriate dashboard based on user role
+    if (isTeacher) {
+      return <BiologyDashboard onBack={handleBackToDashboard} />;
+    } else {
+      return <StudentBiologyDashboard onBack={handleBackToDashboard} />;
+    }
   }
 
   return (
@@ -84,7 +104,7 @@ export default function HomePage() {
                   
                   {/* Sign Out Button */}
                   <button
-                    onClick={signOut}
+                    onClick={handleSignOut}
                     className="p-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     title="Đăng xuất"
                   >
@@ -159,20 +179,45 @@ export default function HomePage() {
           </h2>
           <p className="text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
             Nền tảng giáo dục khoa học hiện đại cho Sinh học, Hóa học và Vật lý.
-            {selectedRole === 'teacher' 
-              ? ' Tạo và quản lý bài tập một cách dễ dàng.'
-              : ' Học tập và làm bài tập một cách thú vị.'
+            {isAuthenticated
+              ? (isTeacher 
+                  ? ' Tạo và quản lý bài tập một cách dễ dàng.'
+                  : ' Học tập và làm bài tập một cách thú vị.'
+                )
+              : (selectedRole === 'teacher' 
+                  ? ' Tạo và quản lý bài tập một cách dễ dàng.'
+                  : ' Học tập và làm bài tập một cách thú vị.'
+                )
             }
           </p>
         </div>
 
         {/* Subject Cards */}
         <div className="grid md:grid-cols-3 gap-6 mb-12">
-          {Object.values(SUBJECTS).map((subject) => (
+          {subjectsLoading && (
+            <div className="col-span-full text-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-300">Đang tải môn học...</p>
+            </div>
+          )}
+
+          {subjectsError && (
+            <div className="col-span-full text-center py-8">
+              <div className="text-red-600 text-4xl mb-4">⚠️</div>
+              <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                Lỗi tải danh sách môn học
+              </h4>
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                {subjectsError}
+              </p>
+            </div>
+          )}
+
+          {!subjectsLoading && !subjectsError && subjects.map((subject) => (
             <div
-              key={subject.name}
-              onClick={() => handleSubjectClick(subject.name)}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow cursor-pointer group"
+              key={subject.id}
+              onClick={() => handleSubjectClick(subject.name.toLowerCase())}
+              className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-md transition-shadow group cursor-pointer`}
             >
               <div className={`${subject.color} h-32 flex items-center justify-center`}>
                 <span className="text-6xl">{subject.icon}</span>
@@ -182,14 +227,25 @@ export default function HomePage() {
                   {subject.displayName}
                 </h3>
                 <p className="text-gray-600 dark:text-gray-300 text-sm mb-4">
-                  {subject.topics.slice(0, 3).join(', ')}...
+                  {subject.topics && subject.topics.length > 0 
+                    ? subject.topics.slice(0, 3).join(', ') + (subject.topics.length > 3 ? '...' : '')
+                    : 'Đang cập nhật nội dung...'
+                  }
                 </p>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-500 dark:text-gray-400">
-                    {subject.topics.length} chủ đề
+                    {subject.topics && subject.topics.length > 0 
+                      ? `${subject.topics.length} chủ đề`
+                      : 'Sắp ra mắt'
+                    }
                   </span>
                   <button className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm group-hover:translate-x-1 transition-transform">
-                    {isAuthenticated ? 'Vào Dashboard' : 'Đăng nhập'} →
+                    {!isAuthenticated 
+                      ? 'Đăng nhập →' 
+                      : isTeacher 
+                        ? 'Vào Dashboard →' 
+                        : 'Bắt đầu học →'
+                    }
                   </button>
                 </div>
               </div>
@@ -211,41 +267,87 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="bg-green-100 dark:bg-green-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Quản lý lớp học
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Theo dõi tiến độ học sinh hiệu quả
-            </p>
-          </div>
+          {/* Show teacher features only to teachers or when not authenticated (for role selection) */}
+          {(!isAuthenticated || isTeacher) && (
+            <>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-green-100 dark:bg-green-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Quản lý lớp học
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Theo dõi tiến độ học sinh hiệu quả
+                </p>
+              </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="bg-purple-100 dark:bg-purple-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Báo cáo chi tiết
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Thống kê và phân tích kết quả học tập
-            </p>
-          </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-purple-100 dark:bg-purple-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Báo cáo chi tiết
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Thống kê và phân tích kết quả học tập
+                </p>
+              </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-            <div className="bg-orange-100 dark:bg-orange-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
-              <Settings className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-              Tùy chỉnh linh hoạt
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-300">
-              Cài đặt theo nhu cầu từng môn học
-            </p>
-          </div>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-orange-100 dark:bg-orange-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Settings className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Tùy chỉnh linh hoạt
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Cài đặt theo nhu cầu từng môn học
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* Show student features for students */}
+          {isAuthenticated && !isTeacher && (
+            <>
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-green-100 dark:bg-green-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Trophy className="w-6 h-6 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Theo dõi tiến độ
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Xem tiến độ học tập của bản thân
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-purple-100 dark:bg-purple-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <Target className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Luyện tập cá nhân
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Rèn luyện kiến thức với câu hỏi thực hành
+                </p>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                <div className="bg-orange-100 dark:bg-orange-900 w-12 h-12 rounded-lg flex items-center justify-center mb-4">
+                  <CheckCircle className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                </div>
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  Hoàn thành bài tập
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Nộp bài và nhận phản hồi tức thì
+                </p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* CTA Section */}
@@ -256,7 +358,10 @@ export default function HomePage() {
             </h3>
             <p className="text-blue-100 mb-6 max-w-md mx-auto">
               {isAuthenticated 
-                ? 'Hãy chọn môn học và bắt đầu sử dụng các tính năng của ScienceEdu!'
+                ? (isTeacher 
+                    ? 'Hãy chọn môn học và bắt đầu tạo bài tập cho học sinh!'
+                    : 'Hãy chọn môn học và bắt đầu học tập ngay hôm nay!'
+                  )
                 : `Hãy đăng ký tài khoản và ${selectedRole === 'teacher' ? 'tạo bài tập đầu tiên' : 'bắt đầu học tập'} ngay hôm nay!`
               }
             </p>
@@ -265,7 +370,7 @@ export default function HomePage() {
                 onClick={() => handleSubjectClick('biology')}
                 className="bg-white text-blue-600 px-8 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
               >
-                Vào Dashboard Sinh học
+                {isTeacher ? 'Vào Dashboard Sinh học' : 'Bắt đầu học Sinh học'}
               </button>
             ) : (
               <Link

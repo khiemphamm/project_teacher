@@ -12,17 +12,22 @@ export interface User {
 
 export interface Subject {
   id: string;
-  name: 'biology' | 'chemistry' | 'physics';
+  name: 'BIOLOGY' | 'CHEMISTRY' | 'PHYSICS'; // Match database enum
   displayName: string;
   icon: string;
   color: string;
+  topics: string[]; // Add topics array
+  description?: string; // Add description
+  isActive: boolean; // Add isActive flag
+  createdAt: string; // API returns ISO strings
+  updatedAt: string;
 }
 
 export interface Assignment {
   id: string;
   title: string;
   description: string;
-  subject: Subject['name'];
+  subject: Subject['name']; // Now matches 'BIOLOGY' | 'CHEMISTRY' | 'PHYSICS'
   questions: Question[];
   teacherId: string;
   teacher: User;
@@ -81,7 +86,7 @@ export interface Dashboard {
   totalStudents: number;
   totalAssignments: number;
   subjectStats: {
-    subject: Subject['name'];
+    subject: Subject['name']; // Now matches 'BIOLOGY' | 'CHEMISTRY' | 'PHYSICS' 
     assignmentCount: number;
     averageScore: number;
   }[];

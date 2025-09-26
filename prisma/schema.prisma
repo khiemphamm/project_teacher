@@ -40,6 +40,22 @@ model User {
   @@map("users")
 }
 
+// Subject Model - Môn học chi tiết
+model SubjectInfo {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  name        Subject  @unique
+  displayName String
+  icon        String
+  color       String
+  topics      String[]
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("subjects")
+}
+
 // School Model - Trường học
 model School {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId

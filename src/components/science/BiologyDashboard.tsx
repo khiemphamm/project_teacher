@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { SUBJECTS, SAMPLE_QUESTIONS } from '@/lib/constants';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { ArrowLeft, Plus, Eye, Edit, Trash2, Loader2, AlertCircle } from 'lucide-react';
 import { 
   useAuth, 
   useQuestions, 
   useAssignments,
-  useDeleteQuestion 
+  useDeleteQuestion,
+  useDashboardStats,
+  useSubjects
 } from '@/lib/hooks';
 import { apiClient, QuestionData } from '@/lib/api-client';
 
@@ -17,10 +18,20 @@ interface BiologyDashboardProps {
 
 export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
   const [activeTab, setActiveTab] = useState<'overview' | 'questions' | 'assignments'>('overview');
-  const biologySubject = SUBJECTS.biology;
+
+  // Get subjects from database
+  const { subjects } = useSubjects();
+  const biologySubject = subjects.find(s => s.name === 'BIOLOGY') || {
+    displayName: 'Sinh học',
+    icon: '🧬',
+    color: 'bg-green-500'
+  };
 
   // Authentication
   const { user, isAuthenticated, isTeacher } = useAuth();
+
+  // Dashboard stats
+  const { stats, loading: statsLoading, error: statsError } = useDashboardStats('BIOLOGY');
 
   // API hooks
   const { questions, loading: questionsLoading, error: questionsError, refetch: refetchQuestions } = useQuestions({
@@ -35,19 +46,32 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
 
   const { execute: deleteQuestion, loading: deletingQuestion } = useDeleteQuestion();
 
-  // Fallback to sample data if API fails
-  const displayQuestions = questions?.data.length ? questions.data : SAMPLE_QUESTIONS.biology;
-  const displayAssignments = assignments?.data || [];
+  // Display only real database questions - no fallback to sample data
+  const displayQuestions = useMemo(() => {
+    return questions?.data || [];
+  }, [questions?.data]);
 
-  // Auth guard
+  const displayAssignments = useMemo(() => {
+    return assignments?.data || [];
+  }, [assignments?.data]);
+
+  // Auth guard - Block non-teachers
   useEffect(() => {
-    if (!isAuthenticated || !isTeacher) {
-      console.warn('Unauthorized access to Biology Dashboard');
+    if (!isAuthenticated) {
+      // Don't redirect immediately, let the loading state handle it
+      return;
     }
-  }, [isAuthenticated, isTeacher]);
+    
+    if (!isTeacher) {
+      // Block students from accessing teacher dashboard
+      alert('Bạn không có quyền truy cập vào Dashboard Giáo viên!');
+      onBack(); // Return to homepage
+      return;
+    }
+  }, [isAuthenticated, isTeacher, onBack]);
 
   // Handle question deletion
-  const handleDeleteQuestion = async (questionId: string) => {
+  const handleDeleteQuestion = useCallback(async (questionId: string) => {
     if (!confirm('Bạn có chắc muốn xóa câu hỏi này không?')) return;
     
     try {
@@ -56,7 +80,7 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
     } catch (error) {
       console.error('Failed to delete question:', error);
     }
-  };
+  }, [deleteQuestion, refetchQuestions]);
 
   // Loading state for initial auth check
   if (!isAuthenticated) {
@@ -65,6 +89,29 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
         <div className="text-center">
           <Loader2 className="w-8 h-8 animate-spin mx-auto text-green-600 mb-4" />
           <p className="text-gray-600 dark:text-gray-300">Đang xác thực...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Block non-teachers
+  if (isAuthenticated && !isTeacher) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 text-6xl mb-4">🚫</div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+            Truy cập bị từ chối
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            Bạn không có quyền truy cập vào Dashboard Giáo viên
+          </p>
+          <button
+            onClick={onBack}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Quay về Trang chủ
+          </button>
         </div>
       </div>
     );
@@ -135,26 +182,50 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'overview' && (
           <div className="space-y-8">
+            {/* Stats Loading */}
+            {statsLoading && (
+              <div className="text-center py-8">
+                <Loader2 className="w-8 h-8 animate-spin mx-auto text-green-600 mb-2" />
+                <p className="text-gray-600 dark:text-gray-300">Đang tải thống kê...</p>
+              </div>
+            )}
+
+            {/* Stats Error */}
+            {statsError && (
+              <div className="bg-red-50 dark:bg-red-900 border border-red-200 dark:border-red-700 p-4 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400" />
+                  <p className="text-red-800 dark:text-red-200">
+                    Lỗi tải thống kê: {statsError}. Hiển thị dữ liệu fallback.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Stats Cards */}
             <div className="grid md:grid-cols-4 gap-6">
               <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-                <div className="text-2xl font-bold text-gray-900 dark:text-white">24</div>
+                <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                  {stats?.totalStudents || 0}
+                </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Học sinh</div>
               </div>
               <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {displayAssignments.length}
+                  {stats?.totalAssignments || displayAssignments.length}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Bài tập</div>
               </div>
               <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
                 <div className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {displayQuestions.length}
+                  {stats?.totalQuestions || 0}
                 </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Câu hỏi</div>
               </div>
               <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
-                <div className="text-2xl font-bold text-green-600">85%</div>
+                <div className="text-2xl font-bold text-green-600">
+                  {stats?.averageScore ? `${stats.averageScore}%` : '--'}
+                </div>
                 <div className="text-sm text-gray-600 dark:text-gray-300">Điểm TB</div>
               </div>
             </div>
@@ -165,19 +236,38 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
                 Chủ đề môn Sinh học
               </h3>
               <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {biologySubject.topics.map((topic) => (
-                  <div
-                    key={topic}
-                    className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer"
-                  >
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {topic}
+                {stats?.topicStats && stats.topicStats.length > 0 ? (
+                  // Show real topic data from database
+                  stats.topicStats.map((topicStat) => (
+                    <div
+                      key={topicStat.topic}
+                      className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 hover:shadow-md transition-shadow cursor-pointer"
+                    >
+                      <div className="text-sm font-medium text-gray-900 dark:text-white">
+                        {topicStat.topic}
+                      </div>
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        {topicStat.questionCount} câu hỏi
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                      {Math.floor(Math.random() * 20) + 5} câu hỏi
+                  ))
+                ) : (
+                  // Fallback: Show message that no questions exist yet
+                  <div className="col-span-full text-center py-8">
+                    <div className="text-gray-400 dark:text-gray-500 mb-4">
+                      <span className="text-4xl">📚</span>
+                    </div>
+                    <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                      Chưa có câu hỏi nào
+                    </h4>
+                    <p className="text-gray-600 dark:text-gray-300 mb-4">
+                      Thêm câu hỏi đầu tiên để xem thống kê theo chủ đề
+                    </p>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                      Các chủ đề sẽ xuất hiện tự động khi bạn tạo câu hỏi
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           </div>
@@ -217,9 +307,29 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
               </div>
             )}
 
+            {/* Questions List or Empty State */}
+            {!questionsLoading && displayQuestions.length === 0 && (
+              <div className="text-center py-12">
+                <div className="text-gray-400 dark:text-gray-500 mb-4">
+                  <span className="text-4xl">❓</span>
+                </div>
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                  Chưa có câu hỏi nào
+                </h4>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">
+                  Tạo câu hỏi đầu tiên để bắt đầu xây dựng ngân hàng câu hỏi
+                </p>
+                <button className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg transition-colors flex items-center space-x-2 mx-auto">
+                  <Plus className="w-4 h-4" />
+                  <span>Tạo câu hỏi đầu tiên</span>
+                </button>
+              </div>
+            )}
+
             {/* Questions List */}
-            <div className="space-y-4">
-              {displayQuestions.map((question, index) => {
+            {displayQuestions.length > 0 && (
+              <div className="space-y-4">
+                {displayQuestions.map((question, index) => {
                 // Type guard for API vs sample data
                 const isApiQuestion = 'id' in question;
                 const questionData = question as QuestionData & { options?: string[]; explanation?: string; };
@@ -289,7 +399,8 @@ export default function BiologyDashboard({ onBack }: BiologyDashboardProps) {
                   </div>
                 );
               })}
-            </div>
+              </div>
+            )}
           </div>
         )}
 

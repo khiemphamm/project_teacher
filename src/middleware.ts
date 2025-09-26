@@ -6,8 +6,8 @@ export default withAuth(
     const token = req.nextauth.token;
     const { pathname } = req.nextUrl;
 
-    // Redirect authenticated users away from auth pages
-    if (token && pathname.startsWith('/auth/')) {
+    // Redirect authenticated users away from auth pages (login, register)
+    if (token && (pathname === '/login' || pathname === '/register' || pathname.startsWith('/auth/'))) {
       const redirectUrl = getRedirectUrl(token.role as string);
       return NextResponse.redirect(new URL(redirectUrl, req.url));
     }
@@ -30,7 +30,7 @@ export default withAuth(
         }
 
         // Allow access to auth pages if not authenticated
-        if (pathname.startsWith('/auth/')) {
+        if (pathname === '/login' || pathname === '/register' || pathname.startsWith('/auth/')) {
           return true;
         }
 
@@ -48,6 +48,8 @@ function isPublicPage(pathname: string): boolean {
     '/contact',
     '/features',
     '/api/auth',
+    '/login',
+    '/register',
     '/unauthorized'
   ];
 

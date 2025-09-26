@@ -24,6 +24,16 @@ export interface PaginatedResponse<T> {
   };
 }
 
+export interface ClassesPaginatedResponse {
+  classes: ClassData[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    pages: number;
+  };
+}
+
 // Auth API Types
 export interface LoginCredentials {
   email: string;
@@ -39,6 +49,29 @@ export interface RegisterData {
 
 export interface SessionData {
   user?: AuthUser;
+}
+
+// Subject API Types
+export interface SubjectData {
+  id: string;
+  name: string;
+  displayName: string;
+  icon: string;
+  color: string;
+  topics: string[];
+  description?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSubjectData {
+  name: 'BIOLOGY' | 'CHEMISTRY' | 'PHYSICS';
+  displayName: string;
+  icon: string;
+  color: string;
+  topics?: string[];
+  description?: string;
 }
 
 // Classes API Types
@@ -190,7 +223,27 @@ export const apiClient = {
     },
 
     signOut: async (): Promise<void> => {
-      await fetch('/api/auth/signout', { method: 'POST' });
+      // Use NextAuth signout endpoint
+      await fetch('/api/auth/signout', { 
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        }
+      });
+    },
+  },
+
+  // Subjects
+  subjects: {
+    list: async (): Promise<SubjectData[]> => {
+      return apiCall('/subjects');
+    },
+
+    create: async (data: CreateSubjectData): Promise<SubjectData> => {
+      return apiCall('/subjects', {
+        method: 'POST',
+        body: JSON.stringify(data),
+      });
     },
   },
 
@@ -202,7 +255,7 @@ export const apiClient = {
       subject?: string;
       grade?: string;
       search?: string;
-    } = {}): Promise<PaginatedResponse<ClassData>> => {
+    } = {}): Promise<ClassesPaginatedResponse> => {
       const searchParams = new URLSearchParams();
       Object.entries(params).forEach(([key, value]) => {
         if (value !== undefined) searchParams.set(key, value.toString());

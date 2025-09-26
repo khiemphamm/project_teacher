@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSession, signOut as nextAuthSignOut } from 'next-auth/react';
 import { 
   apiClient, 
   PaginatedResponse,
+  ClassesPaginatedResponse,
   ClassData,
   AssignmentData,
   QuestionData,
+  SubjectData,
 } from '@/lib/api-client';
 import { AuthUser } from '@/lib/auth-utils';
 
@@ -49,55 +52,167 @@ export function useApiOperation<T = unknown>() {
 
 // Authentication hooks
 export function useAuth() {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch current session
-  const fetchSession = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const session = await apiClient.auth.getSession();
-      setUser(session.user || null);
-    } catch (err) {
-      setUser(null);
-      // Don't set error for missing session (user not logged in)
-      if (err instanceof Error && !err.message.includes('401')) {
-        setError(err.message);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  const { data: session, status } = useSession();
+  
   // Sign out
   const signOut = useCallback(async () => {
     try {
-      await apiClient.auth.signOut();
-      setUser(null);
-      // Redirect to login page
-      window.location.href = '/auth/login';
+      // Use NextAuth signOut with redirect
+      await nextAuthSignOut({ callbackUrl: '/' });
     } catch (err) {
       console.error('Sign out error:', err);
     }
   }, []);
 
-  // Check session on mount
-  useEffect(() => {
-    fetchSession();
-  }, [fetchSession]);
+  // Convert NextAuth session to our AuthUser format
+  const user: AuthUser | null = session?.user ? {
+    id: session.user.id as string,
+    name: session.user.name || '',
+    email: session.user.email || '',
+    role: session.user.role as string,
+    avatar: session.user.image || null,
+  } : null;
 
   return {
     user,
-    loading,
-    error,
-    isAuthenticated: !!user,
+    loading: status === 'loading',
+    error: null,
+    isAuthenticated: status === 'authenticated',
     isTeacher: user?.role === 'TEACHER',
     isStudent: user?.role === 'STUDENT',
     isAdmin: user?.role === 'ADMIN',
-    fetchSession,
     signOut,
+  };
+}
+
+// Dashboard Stats hook
+export function useDashboardStats(subject?: string) {
+  const [stats, setStats] = useState<{
+    totalStudents: number;
+    totalAssignments: number;
+    totalQuestions: number;
+    averageScore: number | null;
+    topicStats: Array<{
+      topic: string;
+      questionCount: number;
+    }>;
+  } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Fetch parallel data with individual error handling
+      const [questionsResponse, assignmentsResponse, classesResponse] = await Promise.allSettled([
+        apiClient.questions.list({ subject, limit: 1000 }),
+        apiClient.assignments.list({ subject, limit: 1000 }),
+        apiClient.classes.list({ subject, limit: 1000 })
+      ]);
+
+      // Safely extract data arrays with fallbacks
+      const questionsData = questionsResponse.status === 'fulfilled' && questionsResponse.value?.data || [];
+      const assignmentsData = assignmentsResponse.status === 'fulfilled' && assignmentsResponse.value?.data || [];
+      const classesData = classesResponse.status === 'fulfilled' && classesResponse.value?.classes || [];
+
+      // Calculate topic statistics from all available questions
+      const topicStats: Record<string, number> = {};
+      questionsData.forEach((question) => {
+        if (question?.topic) {
+          topicStats[question.topic] = (topicStats[question.topic] || 0) + 1;
+        }
+      });
+
+      // Count total students from all classes
+      const totalStudents = classesData.reduce((sum: number, cls: ClassData) => {
+        return sum + (cls?._count?.students || 0);
+      }, 0);
+
+      // Calculate average score only if we have actual submission data (null for now)
+      // This would need to query submissions/results table when implemented
+      const averageScore = null; // Set to null until we have real submission data
+
+      setStats({
+        totalStudents,
+        totalAssignments: assignmentsData.length,
+        totalQuestions: questionsData.length,
+        averageScore,
+        topicStats: Object.entries(topicStats).map(([topic, count]) => ({
+          topic,
+          questionCount: count
+        }))
+      });
+
+      // Check for any rejected promises and log warnings
+      const rejectedApis = [questionsResponse, assignmentsResponse, classesResponse]
+        .map((response, index) => ({ response, api: ['questions', 'assignments', 'classes'][index] }))
+        .filter(({ response }) => response.status === 'rejected');
+      
+      if (rejectedApis.length > 0) {
+        console.warn('Some APIs failed:', rejectedApis.map(({ api, response }) => 
+          `${api}: ${response.status === 'rejected' ? response.reason : 'unknown'}`
+        ));
+      }
+
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tải thống kê';
+      setError(errorMessage);
+      // Fallback data
+      setStats({
+        totalStudents: 0,
+        totalAssignments: 0,
+        totalQuestions: 0,
+        averageScore: null,
+        topicStats: []
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [subject]);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  return {
+    stats,
+    loading,
+    error,
+    refetch: fetchStats,
+  };
+}
+
+// Subjects hooks
+export function useSubjects() {
+  const [subjects, setSubjects] = useState<SubjectData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchSubjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await apiClient.subjects.list();
+      setSubjects(result);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách môn học';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSubjects();
+  }, [fetchSubjects]);
+
+  return {
+    subjects,
+    loading,
+    error,
+    refetch: fetchSubjects,
   };
 }
 
@@ -109,15 +224,24 @@ export function useClasses(params: {
   grade?: string;
   search?: string;
 } = {}) {
-  const [classes, setClasses] = useState<PaginatedResponse<ClassData> | null>(null);
+  const [classes, setClasses] = useState<ClassesPaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Extract individual params to avoid object reference issues
+  const { page, limit, subject, grade, search } = params;
 
   const fetchClasses = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiClient.classes.list(params);
+      const result = await apiClient.classes.list({
+        page,
+        limit,
+        subject,
+        grade,
+        search
+      });
       setClasses(result);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách lớp học';
@@ -125,14 +249,15 @@ export function useClasses(params: {
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [page, limit, subject, grade, search]);
 
   useEffect(() => {
     fetchClasses();
   }, [fetchClasses]);
 
   return {
-    classes,
+    classes: classes?.classes || [],
+    pagination: classes?.pagination,
     loading,
     error,
     refetch: fetchClasses,
@@ -197,11 +322,21 @@ export function useAssignments(params: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Extract individual params to avoid object reference issues
+  const { page, limit, subject, published, search, classId } = params;
+
   const fetchAssignments = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiClient.assignments.list(params);
+      const result = await apiClient.assignments.list({
+        page,
+        limit,
+        subject,
+        published,
+        search,
+        classId
+      });
       setAssignments(result);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách bài tập';
@@ -209,7 +344,7 @@ export function useAssignments(params: {
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [page, limit, subject, published, search, classId]);
 
   useEffect(() => {
     fetchAssignments();
@@ -286,11 +421,22 @@ export function useQuestions(params: {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Extract individual params to avoid object reference issues
+  const { page, limit, subject, difficulty, type, search, assignmentId } = params;
+
   const fetchQuestions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const result = await apiClient.questions.list(params);
+      const result = await apiClient.questions.list({
+        page,
+        limit,
+        subject,
+        difficulty,
+        type,
+        search,
+        assignmentId
+      });
       setQuestions(result);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Không thể tải danh sách câu hỏi';
@@ -298,7 +444,7 @@ export function useQuestions(params: {
     } finally {
       setLoading(false);
     }
-  }, [params]);
+  }, [page, limit, subject, difficulty, type, search, assignmentId]);
 
   useEffect(() => {
     fetchQuestions();
